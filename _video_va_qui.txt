@@ -1,0 +1,7 @@
+Metti il file video finale in questa cartella (accanto a index.html) con il nome esatto:
+
+  final_video.mp4
+
+Formato consigliato: MP4 H.264 (massima compatibilità con iPhone/Safari).
+Il video parte automaticamente quando Simo raggiunge la cima della torre,
+dopo che il giocatore preme SPAZIO o tocca il pulsante "GUARDA IL VIDEO".

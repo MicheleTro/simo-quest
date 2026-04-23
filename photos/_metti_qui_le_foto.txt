@@ -1,0 +1,15 @@
+Metti qui le tue 20 foto nominate:
+
+photo_1.jpg
+photo_2.jpg
+photo_3.jpg
+...
+photo_20.jpg
+
+Sono accettati anche .jpeg e .png
+
+Le foto verranno mostrate in ordine crescente:
+- photo_1 = prima foto raccolta (in basso nella torre)
+- photo_20 = ultima foto raccolta (vicino alla cima)
+
+Se una foto manca, comparirà un placeholder colorato al suo posto.
