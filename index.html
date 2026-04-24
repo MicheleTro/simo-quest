@@ -143,7 +143,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;  /* mostra tutta la foto, fasce trasparenti se orizzontale */
     animation: photoFadeIn 0.4s ease-out;
   }
 
@@ -314,6 +314,12 @@
     filter: drop-shadow(0 8px 0 rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(199, 125, 255, 0.5));
     z-index: 2;
     margin: 10px 0;
+    width: auto;
+    height: auto;
+    max-width: 90%;
+    max-height: 55vh;
+    object-fit: contain;
+    flex-shrink: 0;
   }
 
   #start-screen .start-btn {
@@ -510,6 +516,102 @@
     transform: translate(-50%, -50%) scale(1);
   }
 
+  /* ========== EASTER EGG: SUPER PAPÀ ========== */
+  #ee-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.75) 100%);
+    animation: eeBgFadeIn 0.3s ease-out;
+  }
+  #ee-overlay.hidden { display: none; }
+
+  @keyframes eeBgFadeIn {
+    from { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%); }
+    to   { background: radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.75) 100%); }
+  }
+
+  #ee-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 4.5vw, 22px);
+    color: #ffd93d;
+    text-align: center;
+    letter-spacing: 2px;
+    line-height: 1.3;
+    text-shadow:
+      3px 3px 0 #6a0a55,
+      6px 6px 0 #2a0033,
+      0 0 20px rgba(255, 217, 61, 0.9),
+      0 0 40px rgba(255, 95, 200, 0.8);
+    padding: 20px;
+    animation: eeTitleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), eePulse 1.2s ease-in-out 0.5s infinite;
+    max-width: 92%;
+  }
+
+  @keyframes eeTitleIn {
+    from { opacity: 0; transform: scale(0.3) rotate(-15deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  @keyframes eePulse {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50%      { transform: scale(1.06) rotate(-1deg); }
+  }
+
+  #ee-bubble-wrap {
+    position: relative;
+    animation: eeBubbleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  }
+
+  #ee-bubble {
+    position: relative;
+    background: #fff;
+    color: #1a0033;
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(13px, 3.8vw, 18px);
+    padding: 18px 26px;
+    border: 4px solid #000;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    box-shadow: 4px 4px 0 #000, 0 0 30px rgba(255, 217, 61, 0.7);
+    text-align: center;
+    white-space: nowrap;
+  }
+  #ee-bubble::after {
+    /* coda del fumetto (direzione basso-destra = verso Simo) */
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    left: 55%;
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 22px solid #fff;
+    filter: drop-shadow(0 4px 0 #000);
+  }
+  #ee-bubble::before {
+    /* bordo nero della coda */
+    content: '';
+    position: absolute;
+    bottom: -26px;
+    left: 55%;
+    width: 0; height: 0;
+    border-left: 22px solid transparent;
+    border-right: 22px solid transparent;
+    border-top: 26px solid #000;
+    margin-left: -4px;
+  }
+
+  @keyframes eeBubbleIn {
+    from { opacity: 0; transform: scale(0.2) translateY(30px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
   /* Loading screen */
   #loading {
     position: absolute;
@@ -600,6 +702,14 @@
   </div>
 
   <div id="toast"></div>
+
+  <!-- Easter egg: annuncio Super Papà -->
+  <div id="ee-overlay" class="hidden">
+    <div id="ee-title">POTERE DEL SUPER PAPÀ ATTIVO!</div>
+    <div id="ee-bubble-wrap">
+      <div id="ee-bubble">Arrivo Landuccio!</div>
+    </div>
+  </div>
 
   <div id="video-container">
     <video id="final-video" controls playsinline>
@@ -731,11 +841,12 @@ function renderStartScreen() {
     });
   }
 
-  // Hero canvas: due sprite di Simo, idle gigante + run heroico
+  // Hero canvas: Simo gigante, pixel-perfect
   const heroCanvas = document.getElementById('hero-canvas');
-  // dimensioni: occupa un'area larga ~280px alta ~280
-  const HERO_W = 320;
-  const HERO_H = 300;
+  // Buffer alla giusta proporzione per contenere lo sprite idle (78x141) scalato 3x
+  // con margine per aura + ombra. aspect ~0.8:1 (portrait)
+  const HERO_W = 300;
+  const HERO_H = 480;
   heroCanvas.width = HERO_W;
   heroCanvas.height = HERO_H;
   const hctx = heroCanvas.getContext('2d');
@@ -784,24 +895,22 @@ function renderStartScreen() {
       hctx.fillRect(Math.round(px), Math.round(py), 4, 4);
     }
 
-    // Sprite idle grande, pixel-perfect, centrato
+    // Sprite idle grande, pixel-perfect 3x, centrato
     const idle = SPRITES.idle.img;
     if (idle) {
-      const targetH = 250;
-      const scale = Math.floor(targetH / SPRITES.idle.h); // intero per pixel-perfect
-      const ss = Math.max(2, scale); // minimo 2x
+      const ss = 3;  // scala pixel-perfect 3x (sprite 78x141 -> 234x423)
       const sw = SPRITES.idle.w * ss;
       const sh = SPRITES.idle.h * ss;
       const sx = HERO_W / 2 - sw / 2;
-      const sy = HERO_H - sh - 10;
+      const sy = HERO_H - sh - 20;  // margine in basso per ombra
 
       // bob leggero
       const bob = Math.sin(t * 0.003) * 4;
 
-      // ombra sotto
+      // ombra sotto (disegnata PRIMA dello sprite, bassa così non copre i piedi)
       hctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       hctx.beginPath();
-      hctx.ellipse(HERO_W/2, HERO_H - 6, 50, 8, 0, 0, Math.PI * 2);
+      hctx.ellipse(HERO_W/2, HERO_H - 8, 70, 10, 0, 0, Math.PI * 2);
       hctx.fill();
 
       hctx.drawImage(idle, sx, sy + bob, sw, sh);
@@ -867,15 +976,79 @@ const sfx = {
   birra:  () => { beep(180, 0.4, 'sine', 0.15); setTimeout(()=>beep(140,0.5,'sine',0.12),100); },
   gameover: () => { [400, 350, 280, 200, 150].forEach((f,i) => setTimeout(()=>beep(f,0.18,'sawtooth',0.14), i*120)); },
   win: () => { [523, 659, 784, 1047, 1319].forEach((f,i) => setTimeout(()=>beep(f,0.18,'triangle',0.16), i*120)); },
+  // EASTER EGG: fanfara del Super Papà
+  superPapa: () => {
+    // Arpeggio trionfale + whoosh
+    if (!audioCtx) return;
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => setTimeout(() => beep(f, 0.15, 'triangle', 0.18), i * 80));
+    // whoosh del volo (rumore filtrato)
+    setTimeout(() => {
+      try {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sawtooth';
+        const now = audioCtx.currentTime;
+        o.frequency.setValueAtTime(200, now);
+        o.frequency.exponentialRampToValueAtTime(1800, now + 1.2);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.12, now + 0.1);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now); o.stop(now + 1.35);
+      } catch(e) {}
+    }, 500);
+    // ding finale
+    setTimeout(() => {
+      [1319, 1568, 2093].forEach((f, i) => setTimeout(() => beep(f, 0.2, 'triangle', 0.15), i * 100));
+    }, 1800);
+  },
 };
 
 /* ---------- Input ---------- */
 const keys = { left:false, right:false, jump:false, jumpPressed:false };
+
+// Detector easter egg: processa un singolo input ("jump"|"right"|"left")
+function handleEasterEggInput(inputType) {
+  if (gameState !== 'playing' || eeActive) return;
+  const now = performance.now();
+  // Timeout: se passati più di EE_TIMEOUT_MS dall'ultimo input valido, resetto
+  if (eeIndex > 0 && now - eeLastInputT > EE_TIMEOUT_MS) {
+    eeIndex = 0;
+  }
+  // Match della sequenza?
+  if (inputType === EE_SEQUENCE[eeIndex]) {
+    eeIndex++;
+    eeLastInputT = now;
+    if (eeIndex >= EE_SEQUENCE.length) {
+      triggerEasterEgg();
+      eeIndex = 0;
+    }
+  } else {
+    // Input sbagliato: se il primo input giusto era "jump" e l'utente ne preme uno diverso,
+    // potrebbe anche ricominciare subito la sequenza con questo nuovo input
+    if (inputType === EE_SEQUENCE[0]) {
+      eeIndex = 1;
+      eeLastInputT = now;
+    } else {
+      eeIndex = 0;
+    }
+  }
+}
+
 addEventListener('keydown', e => {
-  if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
-  if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+    if (!keys.left && !e.repeat) handleEasterEggInput('left');
+    keys.left = true;
+  }
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+    if (!keys.right && !e.repeat) handleEasterEggInput('right');
+    keys.right = true;
+  }
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    if (!keys.jump) keys.jumpPressed = true;
+    if (!keys.jump) {
+      keys.jumpPressed = true;
+      if (!e.repeat) handleEasterEggInput('jump');
+    }
     keys.jump = true;
     e.preventDefault();
   }
@@ -906,9 +1079,15 @@ function bindTouch(el, onDown, onUp) {
   el.addEventListener('mouseup', up);
   el.addEventListener('mouseleave', up);
 }
-bindTouch(document.getElementById('btn-left'),  ()=>keys.left=true,  ()=>keys.left=false);
-bindTouch(document.getElementById('btn-right'), ()=>keys.right=true, ()=>keys.right=false);
-bindTouch(document.getElementById('btn-jump'),  ()=>{ if(!keys.jump) keys.jumpPressed=true; keys.jump=true; }, ()=>keys.jump=false);
+bindTouch(document.getElementById('btn-left'),
+  () => { if (!keys.left) handleEasterEggInput('left'); keys.left = true; },
+  () => keys.left = false);
+bindTouch(document.getElementById('btn-right'),
+  () => { if (!keys.right) handleEasterEggInput('right'); keys.right = true; },
+  () => keys.right = false);
+bindTouch(document.getElementById('btn-jump'),
+  () => { if (!keys.jump) { keys.jumpPressed = true; handleEasterEggInput('jump'); } keys.jump = true; },
+  () => keys.jump = false);
 
 // Tap sull'overlay foto per chiuderla (mobile)
 document.getElementById('photo-overlay').addEventListener('click', () => {
@@ -958,6 +1137,19 @@ let doorOpenT = 0;               // tempo animazione apertura
 let victoryTriggered = false;    // schermata vittoria già lanciata?
 let doorX = 0, doorY = 0;        // posizione porta
 let cameraStopped = false;       // camera ferma (terrazzo raggiunto)
+
+// === EASTER EGG: SUPER PAPÀ ===
+// Sequenza: salto → destra → sinistra → salto → destra → sinistra
+const EE_SEQUENCE = ['jump', 'right', 'left', 'jump', 'right', 'left'];
+const EE_TIMEOUT_MS = 800;   // reset se input troppo tardivo
+let eeIndex = 0;              // progressione attuale nella sequenza
+let eeLastInputT = 0;         // timestamp ultimo input valido
+let eeActive = false;         // easter egg in corso?
+let eePhase = 'none';         // 'none' | 'announce' | 'flying' | 'done'
+let eePhaseT = 0;             // ms nella fase attuale
+let eeStartX = 0, eeStartY = 0; // posizione partenza volo
+let eeTargetX = 0, eeTargetY = 0; // terrazzo destinazione
+let eeTrail = [];             // scie luminose durante il volo
 
 const CAM_BASE = 80;      // altezza dal bottom dello schermo dove si genera la "morte" iniziale (margine)
 const GRACE_MS = 2500;    // grace period: la camera non sale per i primi 2.5s
@@ -1179,6 +1371,15 @@ function startGame() {
   hidePowerupIndicator();
   hideToast();
 
+  // Reset easter egg
+  eeIndex = 0;
+  eeLastInputT = 0;
+  eeActive = false;
+  eePhase = 'none';
+  eePhaseT = 0;
+  eeTrail = [];
+  document.getElementById('ee-overlay').classList.add('hidden');
+
   gameState = 'playing';
 }
 
@@ -1260,6 +1461,130 @@ function startVideo() {
     ov.classList.remove('hidden');
     document.getElementById('start-btn-again').addEventListener('click', startGame);
   };
+}
+
+/* ---------- EASTER EGG: POTERE DEL SUPER PAPÀ ---------- */
+function triggerEasterEgg() {
+  if (eeActive) return;
+  eeActive = true;
+  eePhase = 'announce';
+  eePhaseT = 0;
+  // Salvo posizione di partenza e calcolo destinazione (sul terrazzo, lontano dalla porta)
+  eeStartX = player.x;
+  eeStartY = player.y;
+  // Atterro sul lato OPPOSTO del terrazzo rispetto alla porta, così il giocatore
+  // deve camminare per entrarci (altrimenti la vittoria scatterebbe all'istante).
+  if (doorX > VW / 2) {
+    eeTargetX = TOWER_LEFT + 60;   // porta a destra → atterro a sinistra
+  } else {
+    eeTargetX = TOWER_RIGHT - 60;  // porta a sinistra → atterro a destra
+  }
+  eeTargetY = doorY;
+  eeTrail = [];
+  // Azzero input per evitare salti parassiti
+  keys.left = false; keys.right = false; keys.jump = false; keys.jumpPressed = false;
+  player.vx = 0; player.vy = 0;
+  // Mostra overlay e riproduci fanfara
+  document.getElementById('ee-overlay').classList.remove('hidden');
+  sfx.superPapa();
+}
+
+function updateEasterEgg(dtMs) {
+  if (!eeActive) return;
+  eePhaseT += dtMs;
+
+  if (eePhase === 'announce') {
+    // 1.8s di annuncio, player immobile, camera ferma
+    if (eePhaseT >= 1800) {
+      eePhase = 'flying';
+      eePhaseT = 0;
+      // nascondo fumetto/titolo
+      document.getElementById('ee-overlay').classList.add('hidden');
+      // il player inizia a volare
+      player.facing = (eeTargetX > player.x) ? 1 : -1;
+    }
+  } else if (eePhase === 'flying') {
+    // Interpolazione curva da (eeStartX, eeStartY) a (eeTargetX, eeTargetY) in 2.2s
+    const duration = 2200;
+    const p = Math.min(1, eePhaseT / duration);
+    // easing
+    const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const newX = eeStartX + (eeTargetX - eeStartX) * eased;
+    const newY = eeStartY + (eeTargetY - eeStartY) * eased;
+    player.x = newX;
+    player.y = newY;
+    // Camera segue il player ISTANTANEAMENTE durante il volo, mantenendolo centrato.
+    // Il volo copre ~7000px in 2.2s = 50 px/frame, troppo veloce per un lerp.
+    cameraY = newY - VH * 0.5;
+
+    // Aggiungo scia luminosa
+    if (eePhaseT % 50 < dtMs + 1) {
+      const hue = (eePhaseT * 0.3) % 360;
+      eeTrail.push({
+        x: newX + (Math.random() - 0.5) * 10,
+        y: newY + player.h / 2 + (Math.random() - 0.5) * 10,
+        life: 500,
+        maxLife: 500,
+        hue,
+        size: 4 + Math.random() * 4,
+      });
+    }
+    // Altri particellari casuali
+    if (Math.random() < 0.5) {
+      particles.push({
+        x: newX + (Math.random() - 0.5) * 30,
+        y: newY + player.h / 2 - Math.random() * 40,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -Math.random() * 2,
+        color: ['#ffd93d', '#c77dff', '#ff5fc8', '#7dcc3d'][Math.floor(Math.random() * 4)],
+        size: 2 + Math.floor(Math.random() * 3),
+        life: 600 + Math.random() * 400,
+      });
+    }
+
+    if (p >= 1) {
+      eePhase = 'done';
+      eePhaseT = 0;
+      // Simo è arrivato sul terrazzo. Ferma la camera se non è già fermata.
+      player.x = eeTargetX;
+      player.y = eeTargetY;
+      player.vx = 0; player.vy = 0;
+      player.onGround = true;
+      cameraStopped = true;
+      // Aggiorna highestY
+      if (player.y > highestY) highestY = player.y;
+      // Big ding
+      sfx.win();
+    }
+  } else if (eePhase === 'done') {
+    // Aggiorna trail
+    for (const t of eeTrail) t.life -= dtMs;
+    eeTrail = eeTrail.filter(t => t.life > 0);
+    if (eePhaseT >= 600 && eeTrail.length === 0) {
+      eeActive = false;
+      eePhase = 'none';
+      // il controllo ritorna al giocatore, che deve camminare alla porta
+    }
+  }
+
+  // In tutte le fasi, aggiorna trail (fading)
+  if (eePhase !== 'announce') {
+    for (const t of eeTrail) t.life -= dtMs;
+    eeTrail = eeTrail.filter(t => t.life > 0);
+  }
+}
+
+function drawEasterEggTrail() {
+  for (const t of eeTrail) {
+    const alpha = t.life / t.maxLife;
+    const sy = ws(t.y);
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.fillStyle = `hsl(${t.hue}, 100%, 70%)`;
+    ctx.beginPath();
+    ctx.arc(t.x, sy, t.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 
 /* ---------- Photo overlay ---------- */
@@ -1349,6 +1674,18 @@ function update(dtMs) {
   confetti = confetti.filter(c => c.y < VH + 30);
 
   if (gameState !== 'playing') return;
+
+  // EASTER EGG: se attivo, bypass fisica normale
+  if (eeActive) {
+    updateEasterEgg(dtMs);
+    // Aggiorna anche particelle e animazione sprite
+    player.animT += dtMs * 0.025;
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= dtMs;
+    }
+    particles = particles.filter(p => p.life > 0);
+    return;
+  }
 
   // Power-up timers
   if (activeFungo > 0) {
@@ -2175,7 +2512,13 @@ function drawDoor() {
 function drawPlayer() {
   // Stato animazione
   let sprite = SPRITES.idle;
-  if (player.hurtT > 0) {
+  if (eeActive && eePhase === 'flying') {
+    // Durante il volo dell'easter egg: posa di salto eroica
+    sprite = SPRITES.jump;
+  } else if (eeActive && eePhase === 'announce') {
+    // Durante l'annuncio: idle con effetto lampeggio
+    sprite = SPRITES.idle;
+  } else if (player.hurtT > 0) {
     sprite = (Math.floor(player.animT * 3) % 2 === 0) ? SPRITES.hurt_1 : SPRITES.hurt_2;
   } else if (!player.onGround) {
     sprite = (player.vy > 0) ? SPRITES.jump : SPRITES.fall;
@@ -2389,6 +2732,7 @@ function draw() {
   drawDoor();
   drawCollectibles();
   drawCats();
+  drawEasterEggTrail();
   drawPlayer();
   drawParticles();
   drawFungoEffects();
@@ -2396,9 +2740,9 @@ function draw() {
   drawConfetti();
 
   // Indicatore di pericolo: zona "morte" è in basso allo schermo (worldY = cameraY)
-  // Mostriamo una banda rossa pulsante se il player è vicino
+  // Nascondo durante l'easter egg (il player sta volando)
   const distFromBottom = (player.y + player.h) - cameraY;
-  if (distFromBottom < 100 && gameState === 'playing') {
+  if (distFromBottom < 100 && gameState === 'playing' && !eeActive) {
     const danger = Math.max(0, 1 - distFromBottom / 100);
     const pulse = (Math.sin(elapsedMs * 0.015) + 1) * 0.5;
     ctx.fillStyle = `rgba(255, 0, 0, ${danger * 0.2 * pulse})`;
